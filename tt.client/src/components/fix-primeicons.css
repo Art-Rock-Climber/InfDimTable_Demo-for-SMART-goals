@@ -1,0 +1,5 @@
+@font-face {
+    font-family: 'PrimeIcons';
+    font-display: block;
+    src: url('/fonts/primeicons.woff2') format('woff2'), url('/fonts/primeicons.woff') format('woff'), url('/fonts/primeicons.ttf') format('truetype');
+}

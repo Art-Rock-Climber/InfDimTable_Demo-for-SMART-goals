@@ -1,0 +1,43 @@
+{
+  "name": "tt.client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@antv/g6": "^5.0.50",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.5",
+    "antd": "^5.28.0",
+    "bootstrap": "^5.3.8",
+    "jquery": "^2.1.4",
+    "jspdf": "^3.0.3",
+    "jspdf-autotable": "^5.0.2",
+    "primeicons": "^7.0.0",
+    "primereact": "^10.9.7",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-tabulator": "^0.21.0",
+    "reactflow": "^11.11.4",
+    "tabulator-tables": "^6.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "globals": "^16.4.0",
+    "sass": "^1.93.3",
+    "vite": "^7.1.7"
+  }
+}
