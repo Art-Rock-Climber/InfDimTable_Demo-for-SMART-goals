@@ -7,6 +7,9 @@ import TabulatorTableView from "./tables/TabulatorTableView.jsx";
 import AntVGraphView from "./AntVGraphView.jsx"
 import ReactFlowGraphView from "./ReactFlowGraphView.jsx"
 
+import GitHubButton from "./GithubButton.jsx";
+
+
 import { Tabs, Tab, Box, useMediaQuery, CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 
 // --- slickgrid-react ---
@@ -141,8 +144,18 @@ const DataViewSwitcher = () => {
                         flexShrink: 0,
                     }}
                 >
-                    <Box sx={{ fontSize: 24, fontWeight: "bold", mb: 1 }}>
-                        SMART+
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                        }}
+                    >
+                        <Box sx={{ fontSize: 24, fontWeight: "bold" }}>
+                            SMART+
+                        </Box>
+
+                        <GitHubButton />
                     </Box>
 
                     <Tabs
@@ -154,13 +167,14 @@ const DataViewSwitcher = () => {
                         <Tab label="Tabulator" />
                         <Tab label="ReactFlow граф" />
                     </Tabs>
+
                 </Box>
 
                 {/* CONTENT */}
                 <Box
                     sx={{
                         flex: 1,
-                        minHeight: 0,      // ✅ ОБЯЗАТЕЛЬНО для flex
+                        minHeight: 0,      // для flex
                         overflow: "hidden"
                     }}
                 >

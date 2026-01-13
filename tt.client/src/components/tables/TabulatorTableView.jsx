@@ -56,31 +56,42 @@ function recomputeParentChain(row) {
 }
 
 // Срезы по глубине
-function sliceTreeWithRebase(nodes, depth = 0, min, max) {
+function sliceTreeWithRebase(nodes, depth = 0, minDepth, maxDepth) {
+    // Полностью останавливаем обход, если уже зашли слишком глубоко
+    if (depth > maxDepth) {
+        return [];
+    }
+
     let result = [];
 
     for (const node of nodes) {
-        const absDepth = depth;
+        const currentDepth = depth;
 
-        // Режем глубже maxDepth
-        if (absDepth > max) continue;
+        // Рекурсивно обрабатываем детей только если можем зайти глубже
+        const slicedChildren =
+            node.children && currentDepth < maxDepth
+                ? sliceTreeWithRebase(node.children, currentDepth + 1, minDepth, maxDepth)
+                : [];
 
-        // Рекурсивно обрабатываем детей
-        const slicedChildren = node.children
-            ? sliceTreeWithRebase(node.children, depth + 1, min, max)
-            : [];
+        if (currentDepth >= minDepth) {
+            // Узел попадает в результат
+            const cloned = { ...node };
+            cloned.absDepth = currentDepth;
+            cloned.depth = currentDepth - minDepth;
 
-        // Если узел в диапазоне — он становится корнем или обычным узлом
-        if (absDepth >= min) {
-            result.push({
-                ...node,
-                absDepth,
-                depth: absDepth - min,   // новая глубина
-                children: slicedChildren.length ? slicedChildren : undefined,
-            });
-        }
-        // Если узел выше minDepth — «поднимаем» его детей
-        else {
+            // добавляем children если:
+            // мы НЕ на максимальной глубине
+            // и есть что добавлять
+            if (currentDepth < maxDepth && slicedChildren.length > 0) {
+                cloned.children = slicedChildren;
+            } else {
+                // Явно удаляем children, чтобы Tabulator не считал узел развёрнутым
+                delete cloned.children;
+            }
+
+            result.push(cloned);
+        } else {
+            // currentDepth < minDepth - поднимаем подходящих потомков
             result.push(...slicedChildren);
         }
     }
@@ -110,21 +121,28 @@ function addDepth(nodes, depth = 0) {
     }));
 }
 
-function flattenTree(nodes, depth = 0, minDepth = 0, maxDepth = Infinity) {
+function flattenTree(nodes, currentDepth = 0, minDepth = 0, maxDepth = Infinity) {
     let result = [];
+
     for (const node of nodes) {
         const { children, ...rest } = node;
 
-        if (depth >= minDepth && depth <= maxDepth) {
-            result.push({ ...rest, depth });
+        // Проверяем по абсолютной глубине
+        if (currentDepth >= minDepth && currentDepth <= maxDepth) {
+            result.push({
+                ...rest,
+                depth: currentDepth, // сохраняем абсолютную глубину для отладки (не обязательно)
+            });
         }
 
-        if (children && depth < maxDepth) {
+        // Рекурсивно обходим детей, только если ещё не превысили maxDepth
+        if (children && currentDepth < maxDepth) {
             result = result.concat(
-                flattenTree(children, depth + 1, minDepth, maxDepth)
+                flattenTree(children, currentDepth + 1, minDepth, maxDepth)
             );
         }
     }
+
     return result;
 }
 
@@ -132,7 +150,16 @@ function flattenTree(nodes, depth = 0, minDepth = 0, maxDepth = Infinity) {
 export default function TabulatorTableView({ data }) {
     const tableRef = useRef(null);
     const tabulatorRef = useRef(null);
-    const tableReadyRef = useRef(false); // флаг законченности инициализации
+    const tableReadyRef = useRef(false);
+    const destroyedRef = useRef(false);
+
+
+    const dataRef = useRef(data);
+
+    // Обновляем ref при изменении пропса
+    useEffect(() => {
+        dataRef.current = data;
+    }, [data]);
 
 
     // параметры таблицы
@@ -250,30 +277,43 @@ export default function TabulatorTableView({ data }) {
     }
 
     function applyTableData() {
-        if (!tabulatorRef.current || !tableReadyRef.current) return;
+        if (!tabulatorRef.current || !tableReadyRef.current || destroyedRef.current) {
+            return;
+        }
 
-        const treeData = sliceTreeWithRebase(data, 0, minDepth, maxDepth);
-        const tableData = treeMode
-            ? treeData
-            : flattenTree(treeData);
+        const currentData = dataRef.current;
 
-        tabulatorRef.current.replaceData(tableData);
+        let tableData;
 
+        if (treeMode) {
+            // В режиме дерева — пересобираем дерево с новыми корнями
+            tableData = sliceTreeWithRebase(currentData, 0, minDepth, maxDepth);
+        } else {
+            // В режиме списка — просто выравниваем исходное дерево с фильтром по абсолютной глубине
+            tableData = flattenTree(currentData, 0, minDepth, maxDepth);
+        }
+
+        tabulatorRef.current.setData(tableData);
+
+        // Сброс кэша фильтрации
         const state = deepFilterRef.current;
         state.cache = {};
         state.lastValue = null;
-        state.lastMode = null;
+        state.lastMode = treeMode;
 
         tabulatorRef.current.refreshFilter();
     }
+
 
 
     // Инициализация таблицы
     useEffect(() => {
         if (!tableRef.current) return;
 
+        destroyedRef.current = false;
+
         const table = new Tabulator(tableRef.current, {
-            layout: "fitData",
+            layout: "fitDataTable",
             responsiveLayout: "hide",
             //resizableColumnFit: true,
             layoutColumnsOnNewData: true,
@@ -395,14 +435,29 @@ export default function TabulatorTableView({ data }) {
             ],
         });
 
-        tabulatorRef.current = table;
+        //tabulatorRef.current = table;
 
         table.on("tableBuilt", () => {
             tableReadyRef.current = true;
-            applyTableData();
+            tabulatorRef.current = table;
+
+            // Читаем актуальный data из ref
+            const currentData = dataRef.current;
+            if (Array.isArray(currentData) && currentData.length > 0) {
+                applyTableData();
+            }
         });
 
-        return () => table.destroy();
+        table.on("dataLoaded", () => {
+            // console.log("Данные загружены, строк:", table.getRows().length);
+        });
+
+        return () => {
+            destroyedRef.current = true;
+            tableReadyRef.current = false;
+            tabulatorRef.current = null;
+            table.destroy();
+        };
     }, []);
 
     // Обновление таблицы
